@@ -184,6 +184,7 @@ tbody tr:hover td{background:#f6f2e9}
         <div class="seg" id="segTipo"><button data-t="" class="on">Tudo</button><button data-t="despesa">Despesas</button><button data-t="receita">Receitas</button></div>
         <input id="fBusca" placeholder="🔎 Buscar..." style="flex:1;min-width:140px">
         <select id="fCat"><option value="">Categoria</option></select>
+        <button class="btn" id="btnOrigens" style="padding:11px 16px">⚙️ Origens</button>
       </div>
       <div style="overflow-x:auto"><table>
         <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Origem</th><th></th><th style="text-align:right">Valor</th><th></th></tr></thead>
@@ -194,6 +195,15 @@ tbody tr:hover td{background:#f6f2e9}
   </section>
 
   <div class="foot">FLUXO • seus dados ficam só no seu navegador • outubro/2026 em diante</div>
+</div>
+
+<div class="overlay" id="overlayOrig">
+  <div class="modal">
+    <h2>⚙️ Origens</h2><p>Cartões, contas e formas de pagamento — adicione, renomeie ou exclua</p>
+    <div class="radar" id="origList" style="margin-bottom:16px"></div>
+    <div class="quick"><input id="newOrigNome" placeholder="Nova origem — ex: Cartão 4, Conta Itaú..."><button id="addOrig">Adicionar</button></div>
+    <div class="mfoot"><button class="btn green" id="origClose" style="flex:1;justify-content:center">Pronto</button></div>
+  </div>
 </div>
 
 <div class="overlay" id="overlay">
@@ -217,7 +227,7 @@ tbody tr:hover td{background:#f6f2e9}
 
 <script>
 const CATS=["Alimentação","Moradia","Transporte","Saúde","Educação","Lazer","Compras","Contas","Assinaturas","Outros"];
-const ORIGENS={cartao1:"Cartão 1",cartao2:"Cartão 2",cartao3:"Cartão 3",manual:"Manual",extra:"Extra",pix:"Pix/Conta"};
+const ORIGENS_DEFAULT=[["cartao1","Cartão 1"],["cartao2","Cartão 2"],["cartao3","Cartão 3"],["manual","Manual"],["extra","Extra"],["pix","Pix/Conta"]];
 const ORC_DEFAULT={"Alimentação":1200,"Saúde":800,"Educação":600,"Lazer":400,"Transporte":500,"Moradia":1500,"Compras":600,"Contas":500,"Assinaturas":200,"Outros":1000};
 const LS="fluxo_v1";
 const MESES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
@@ -246,8 +256,10 @@ function seed(){
 }
 let state=null;
 try{state=JSON.parse(localStorage.getItem(LS));}catch(e){}
-if(!state||!state.lancamentos){state={lancamentos:seed(),orcamentos:{...ORC_DEFAULT}};}
+if(!state||!state.lancamentos){state={lancamentos:seed(),orcamentos:{...ORC_DEFAULT},origens:ORIGENS_DEFAULT.map(([id,nome])=>({id,nome}))};}
+if(!state.origens){state.origens=ORIGENS_DEFAULT.map(([id,nome])=>({id,nome}));}
 const save=()=>localStorage.setItem(LS,JSON.stringify(state));
+const origemNome=id=>(state.origens.find(o=>o.id===id)||{}).nome||id;
 
 let mesAtual="2026-10", tipoFiltro="", tipoForm="despesa";
 const doMes=l=>l.data.slice(0,7)===mesAtual;
@@ -354,7 +366,7 @@ function renderExt(){
   const tb=document.getElementById("tbody");tb.innerHTML="";
   ls.forEach(l=>{const tr=document.createElement("tr");
     tr.innerHTML=`<td style="white-space:nowrap">${fmtD(l.data)}</td><td><b>${l.descricao||"—"}</b>${l.parcela?` <span class="orig">${l.parcela}</span>`:""}</td>
-    <td>${l.categoria}</td><td><span class="orig">${ORIGENS[l.origem]||l.origem}</span></td>
+    <td>${l.categoria}</td><td><span class="orig">${origemNome(l.origem)}</span></td>
     <td><span class="stag ${l.tipo}">${l.tipo==="receita"?"receita":"despesa"}</span></td>
     <td style="text-align:right" class="${l.tipo==="receita"?"vin":"vout"}">${l.tipo==="receita"?"+":"−"} ${BRL(l.valor)}</td>
     <td><div class="acoes"><button onclick="editar('${l.id}')">✏️</button><button onclick="excluir('${l.id}')">🗑️</button></div></td>`;
@@ -366,9 +378,10 @@ function renderExt(){
 document.getElementById("segTipo").querySelectorAll("button").forEach(b=>b.onclick=()=>{
   document.getElementById("segTipo").querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");tipoFiltro=b.dataset.t;renderExt();});
 ["fBusca","fCat"].forEach(id=>document.getElementById(id).addEventListener("input",renderExt));
+function fillOrigemSelect(sel,ph){sel.innerHTML=ph?`<option value="">${ph}</option>`:"";state.origens.forEach(o=>{const op=document.createElement("option");op.value=o.id;op.textContent=o.nome;sel.appendChild(op);});}
 (function(){const s=document.getElementById("fCat");CATS.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;s.appendChild(o);});
   const s2=document.getElementById("fCat2");CATS.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;s2.appendChild(o);});
-  const s3=document.getElementById("fOrig");Object.entries(ORIGENS).forEach(([k,v])=>{const o=document.createElement("option");o.value=k;o.textContent=v;s3.appendChild(o);});})();
+  fillOrigemSelect(document.getElementById("fOrig"),"Origem");})();
 
 // lançamento rápido em linguagem natural
 const KW=[["uber|99 |taxi|onibus|onibus|combust","Transporte"],["mercado|supermercado|padaria|ifood|rappi|jantar|almoco|restaurante","Alimentação"],["netflix|spotify|icloud|prime|assinatura","Assinaturas"],["academia|musculacao|farmacia|medico|natacao|jiu","Saúde"],["escola|colegio|curso|faculdade","Educação"],["cinema|show|jogo|bolao|viagem","Lazer"],["aluguel|condominio|luz|agua","Moradia"],["internet|telefone|celular","Contas"],["salario|salário|pagamento recebido|freela","Outros"]];
@@ -387,7 +400,8 @@ function quickAdd(){
   const inp=document.getElementById("qInput"),p=parseRapido(inp.value);
   if(!p){alert('Não entendi. Tente algo como "uber 35" ou "+ salário 5000".');return;}
   const[a,m]=mesAtual.split("-");
-  state.lancamentos.push({id:"l"+Date.now().toString(36),tipo:p.tipo,data:`${mesAtual}-08`,descricao:p.descricao,categoria:p.categoria,valor:p.valor,origem:"manual",parcela:""});
+  const defOrig=state.origens.some(o=>o.id==="manual")?"manual":(state.origens[0]||{}).id;
+  state.lancamentos.push({id:"l"+Date.now().toString(36),tipo:p.tipo,data:`${mesAtual}-08`,descricao:p.descricao,categoria:p.categoria,valor:p.valor,origem:defOrig,parcela:""});
   save();inp.value="";renderAll();
 }
 document.getElementById("qGo").onclick=quickAdd;
@@ -406,7 +420,9 @@ function openModal(edit=null){
   document.getElementById("fValor").value=edit?edit.valor:"";
   document.getElementById("fDesc").value=edit?edit.descricao:"";
   document.getElementById("fCat2").value=edit?edit.categoria:"Outros";
-  document.getElementById("fOrig").value=edit?edit.origem:"manual";
+  fillOrigemSelect(document.getElementById("fOrigem"));
+  const defOrig=state.origens.some(o=>o.id==="manual")?"manual":(state.origens[0]||{}).id;
+  document.getElementById("fOrigem").value=edit?edit.origem:defOrig;
   document.getElementById("fParc").value=edit?(edit.parcela||""):"";
   overlay.classList.add("open");
 }
@@ -430,6 +446,57 @@ window.editar=id=>{const l=state.lancamentos.find(x=>x.id===id);if(l)openModal(l
 window.excluir=id=>{if(confirm("Excluir este lançamento?")){state.lancamentos=state.lancamentos.filter(x=>x.id!==id);save();renderAll();}};
 
 function renderAll(){renderDash();if(document.getElementById("v-ext").classList.contains("active"))renderExt();}
+
+// ===== Gerenciar origens =====
+const overlayOrig=document.getElementById("overlayOrig");
+function refreshOrigemSelects(){
+  const f=document.getElementById("fOrig");const keep=f.value;
+  fillOrigemSelect(f,"Origem");f.value=keep;
+}
+function renderOrigens(){
+  const list=document.getElementById("origList");list.innerHTML="";
+  state.origens.forEach(o=>{
+    const n=state.lancamentos.filter(l=>l.origem===o.id).length;
+    const d=document.createElement("div");d.className="ritem";d.id="origrow-"+o.id;
+    d.innerHTML=`<div class="inf"><b>${o.nome}</b><small>${n} lançamento(s)</small></div>
+      <div class="acoes"><button onclick="renomearOrigem('${o.id}')" title="Renomear">✏️</button><button onclick="excluirOrigem('${o.id}')" title="Excluir">🗑️</button></div>`;
+    list.appendChild(d);
+  });
+}
+window.renomearOrigem=id=>{
+  const o=state.origens.find(x=>x.id===id);if(!o)return;
+  const nome=prompt("Novo nome para a origem:",o.nome);
+  if(nome&&nome.trim()){o.nome=nome.trim();save();renderOrigens();refreshOrigemSelects();renderAll();}
+};
+window.excluirOrigem=id=>{
+  const n=state.lancamentos.filter(l=>l.origem===id).length;
+  if(n===0){
+    if(!confirm("Excluir esta origem?"))return;
+    state.origens=state.origens.filter(o=>o.id!==id);save();renderOrigens();refreshOrigemSelects();renderAll();return;
+  }
+  const outras=state.origens.filter(o=>o.id!==id);
+  if(!outras.length){alert("É a única origem — crie outra antes de excluir.");return;}
+  const row=document.getElementById("origrow-"+id);
+  row.innerHTML=`<div class="inf"><b>Mover ${n} lançamento(s) para:</b><small>escolha o destino</small></div>
+    <select id="moverPara" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px;font:600 13px 'Inter';color:var(--ink)">${outras.map(o=>`<option value="${o.id}">${o.nome}</option>`).join("")}</select>
+    <div class="acoes"><button onclick="confirmarExclusaoOrigem('${id}')" title="Confirmar">✔️</button><button onclick="renderOrigens()" title="Cancelar">✖️</button></div>`;
+};
+window.confirmarExclusaoOrigem=id=>{
+  const dest=document.getElementById("moverPara").value;
+  state.lancamentos.forEach(l=>{if(l.origem===id)l.origem=dest;});
+  state.origens=state.origens.filter(o=>o.id!==id);
+  save();renderOrigens();refreshOrigemSelects();renderAll();
+};
+document.getElementById("btnOrigens").onclick=()=>{renderOrigens();overlayOrig.classList.add("open");};
+document.getElementById("origClose").onclick=()=>overlayOrig.classList.remove("open");
+overlayOrig.addEventListener("click",e=>{if(e.target===overlayOrig)overlayOrig.classList.remove("open");});
+document.getElementById("addOrig").onclick=()=>{
+  const inp=document.getElementById("newOrigNome"),nome=inp.value.trim();
+  if(!nome){alert("Digite um nome para a origem.");return;}
+  state.origens.push({id:"o"+Date.now().toString(36),nome});
+  save();inp.value="";renderOrigens();refreshOrigemSelects();
+};
+
 setMes();renderAll();
 </script>
 </body>
