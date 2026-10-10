@@ -131,6 +131,28 @@ tbody tr:hover td{background:#f6f2e9}
 .nav2 button{border:1px solid var(--line);background:var(--card);padding:11px 20px;border-radius:99px;font:700 13.5px 'Inter';cursor:pointer;color:var(--muted)}
 .nav2 button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:34px}
+/* relatórios */
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;box-shadow:var(--shadow)}
+.kpi small{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.kpi .kv{font-family:'Fraunces',serif;font-size:30px;font-weight:600;margin-top:8px}
+.kpi .ks{font-size:12.5px;color:var(--muted);margin-top:4px}
+.rtable{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+.rtable th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.6px;padding:9px 10px;border-bottom:1px solid var(--line)}
+.rtable td{padding:11px 10px;border-bottom:1px solid var(--line)}
+.rtable tbody tr:hover td{background:#f6f2e9}
+.rtable td.n,.rtable th.n{text-align:right}
+.pbar{height:8px;border-radius:99px;background:var(--paper2);overflow:hidden;min-width:80px}
+.pbar i{display:block;height:100%;background:var(--ink);border-radius:99px}
+.tag{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700}
+.tag.ok{background:var(--green-soft);color:var(--green)}.tag.warn{background:var(--amber-soft);color:var(--amber)}.tag.bad{background:var(--red-soft);color:var(--red)}
+@media print{
+  .nav2,.hact,.foot,.noprint{display:none!important}
+  .view{display:none!important}
+  #v-rel{display:block!important}
+  body{background:#fff}
+  .card,.hero,.kpi{box-shadow:none!important}
+  .app{padding:0;max-width:100%}
+}
 @media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}.hero .saldo{font-size:44px}.app{padding:16px 14px 90px}.flow{grid-template-columns:1fr 1fr}}
 </style>
 </head>
@@ -147,6 +169,7 @@ tbody tr:hover td{background:#f6f2e9}
   <div class="nav2">
     <button class="on" data-v="dash">Visão geral</button>
     <button data-v="ext">Extrato</button>
+    <button data-v="rel">Relatórios</button>
   </div>
 
   <!-- DASH -->
@@ -191,6 +214,28 @@ tbody tr:hover td{background:#f6f2e9}
         <tbody id="tbody"></tbody>
       </table></div>
       <div class="empty" id="emptyMsg" style="display:none">Nada por aqui ainda.</div>
+    </div>
+  </section>
+
+  <!-- RELATÓRIOS -->
+  <section id="v-rel" class="view">
+    <div class="sect" style="margin-top:0"><h2>Relatório do mês</h2><span id="relMes"></span></div>
+    <div class="grid3" id="relKpis" style="margin-bottom:16px"></div>
+    <div class="grid2">
+      <div class="card"><h3>Despesas por categoria</h3><div class="sub">onde o dinheiro foi • % do total de despesas</div>
+        <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>Categoria</th><th class="n">Gasto</th><th class="n">% desp.</th><th class="n">Meta</th><th class="n">Status</th></tr></thead><tbody id="relCat"></tbody></table></div></div>
+      <div class="card"><h3>Despesas por origem</h3><div class="sub">cartões, contas e formas de pagamento</div>
+        <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>Origem</th><th class="n">Lanç.</th><th class="n">Gasto</th><th></th></tr></thead><tbody id="relOrig"></tbody></table></div></div>
+    </div>
+    <div class="grid2" style="margin-top:16px">
+      <div class="card"><h3>🏆 Maiores despesas</h3><div class="sub">top 5 do mês</div><div class="radar" id="relTop"></div></div>
+      <div class="card"><h3>🔮 Projeção de fim de mês</h3><div class="sub">no ritmo atual das despesas</div><div id="relProj"></div></div>
+    </div>
+    <div class="card noprint" style="margin-top:16px"><h3>Levar os dados</h3><div class="sub">analise onde quiser — o CSV abre no Excel</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" id="btnCSV">⬇ Baixar CSV do mês</button>
+        <button class="btn" style="background:var(--paper2);color:var(--ink)" id="btnPrint">🖨 Imprimir / salvar PDF</button>
+      </div>
     </div>
   </section>
 
@@ -276,6 +321,7 @@ document.querySelectorAll(".nav2 button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById("v-"+b.dataset.v).classList.add("active");
   if(b.dataset.v==="ext")renderExt();
+  if(b.dataset.v==="rel")renderRel();
 });
 
 function renderDash(){
@@ -420,9 +466,9 @@ function openModal(edit=null){
   document.getElementById("fValor").value=edit?edit.valor:"";
   document.getElementById("fDesc").value=edit?edit.descricao:"";
   document.getElementById("fCat2").value=edit?edit.categoria:"Outros";
-  fillOrigemSelect(document.getElementById("fOrigem"));
+  fillOrigemSelect(document.getElementById("fOrig"),"Origem");
   const defOrig=state.origens.some(o=>o.id==="manual")?"manual":(state.origens[0]||{}).id;
-  document.getElementById("fOrigem").value=edit?edit.origem:defOrig;
+  document.getElementById("fOrig").value=edit?edit.origem:defOrig;
   document.getElementById("fParc").value=edit?(edit.parcela||""):"";
   overlay.classList.add("open");
 }
@@ -445,7 +491,79 @@ document.getElementById("mSave").onclick=()=>{
 window.editar=id=>{const l=state.lancamentos.find(x=>x.id===id);if(l)openModal(l);};
 window.excluir=id=>{if(confirm("Excluir este lançamento?")){state.lancamentos=state.lancamentos.filter(x=>x.id!==id);save();renderAll();}};
 
-function renderAll(){renderDash();if(document.getElementById("v-ext").classList.contains("active"))renderExt();}
+// ===== Relatórios =====
+function renderRel(){
+  const[a,m]=mesAtual.split("-").map(Number);
+  document.getElementById("relMes").textContent=MESES[m-1]+" de "+a;
+  const ls=state.lancamentos.filter(doMes);
+  const des=ls.filter(l=>l.tipo==="despesa"),rec=ls.filter(l=>l.tipo==="receita");
+  const tD=des.reduce((s,l)=>s+l.valor,0),tR=rec.reduce((s,l)=>s+l.valor,0),saldo=tR-tD;
+  const kpi=(t,v,cor,s)=>`<div class="kpi"><small>${t}</small><div class="kv" style="color:${cor}">${v}</div><div class="ks">${s}</div></div>`;
+  document.getElementById("relKpis").innerHTML=
+    kpi("⬆ Receitas",BRL(tR),"var(--green)",rec.length+" lançamento(s)")+
+    kpi("⬇ Despesas",BRL(tD),"var(--red)",des.length+" lançamento(s)")+
+    kpi("≈ Saldo",(saldo<0?"−":"")+BRL(Math.abs(saldo)),saldo<0?"var(--red)":"var(--green)",tR===0?"adicione receitas para ver o saldo real":"receitas menos despesas");
+  // por categoria
+  const porCat={};des.forEach(l=>porCat[l.categoria]=(porCat[l.categoria]||0)+l.valor);
+  const tc=document.getElementById("relCat");tc.innerHTML="";
+  Object.entries(porCat).sort((x,y)=>y[1]-x[1]).forEach(([c,v])=>{
+    const meta=state.orcamentos[c]||0;
+    const st=!meta?'<span class="tag">sem meta</span>':(v>meta?'<span class="tag bad">estourou</span>':(v/meta>.8?'<span class="tag warn">atenção</span>':'<span class="tag ok">ok</span>'));
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><b>${c}</b></td><td class="n">${BRL(v)}</td><td class="n">${tD?(v/tD*100).toFixed(1).replace(".",",")+"%":"—"}</td><td class="n">${meta?BRL(meta):"—"}</td><td class="n">${st}</td>`;
+    tc.appendChild(tr);
+  });
+  if(!tc.children.length)tc.innerHTML='<tr><td colspan="5"><div class="empty">Sem despesas no mês.</div></td></tr>';
+  // por origem
+  const porO={};des.forEach(l=>{const id=l.origem||"?";porO[id]=porO[id]||{v:0,n:0};porO[id].v+=l.valor;porO[id].n++;});
+  const to=document.getElementById("relOrig");to.innerHTML="";
+  Object.entries(porO).sort((x,y)=>y[1].v-x[1].v).forEach(([id,o])=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><b>${origemNome(id)}</b></td><td class="n">${o.n}</td><td class="n">${BRL(o.v)}</td><td class="n"><div class="pbar"><i style="width:${tD?Math.min(100,o.v/tD*100):0}%"></i></div></td>`;
+    to.appendChild(tr);
+  });
+  if(!to.children.length)to.innerHTML='<tr><td colspan="4"><div class="empty">Sem despesas no mês.</div></td></tr>';
+  // top 5
+  const rt=document.getElementById("relTop");rt.innerHTML="";
+  [...des].sort((x,y)=>y.valor-x.valor).slice(0,5).forEach((l,i)=>{
+    const d=document.createElement("div");d.className="ritem";
+    d.innerHTML=`<div class="ric" style="background:var(--paper2);font-family:'Fraunces',serif;font-weight:700">${i+1}</div><div class="inf"><b>${l.descricao||"—"}</b><small>${fmtD(l.data)} • ${l.categoria} • ${origemNome(l.origem)}</small></div><div class="rv">${BRL(l.valor)}</div>`;
+    rt.appendChild(d);
+  });
+  if(!rt.children.length)rt.innerHTML='<div class="empty">Sem despesas no mês.</div>';
+  // projeção
+  const now=new Date();
+  const curYM=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+  const diasMes=new Date(a,m,0).getDate();
+  const diaRef=mesAtual===curYM?Math.max(1,now.getDate()):diasMes;
+  const proj=diaRef>=diasMes?tD:(tD/diaRef*diasMes);
+  const ritmo=tD/Math.max(1,diaRef);
+  const pj=document.getElementById("relProj");
+  pj.innerHTML=`<div class="serif" style="font-size:38px;font-weight:600">${BRL(proj)}</div>
+    <div style="color:var(--muted);font-size:13px;margin-top:6px">projeção de despesas até dia ${diasMes}, no ritmo de ${BRL(ritmo)}/dia</div>
+    <div class="insight ${tR>0&&proj>tR?"bad":(tR>0?"good":"info")}" style="margin-top:14px"><span class="ie">${tR>0&&proj>tR?"🚨":(tR>0?"✅":"💡")}</span><div>${
+      tR>0?(proj>tR?`Nesse ritmo você fecha o mês <b>${BRL(proj-tR)} no vermelho</b>.`:`Nesse ritmo sobram <b>${BRL(tR-proj)}</b> no fim do mês.`):"Lance suas receitas para comparar com a projeção."
+    }</div></div>`;
+}
+function exportCSV(){
+  const ls=state.lancamentos.filter(doMes).sort((x,y)=>x.data.localeCompare(y.data));
+  const esc=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+  const rows=[["Data","Descrição","Categoria","Origem","Tipo","Valor (R$)","Parcela"].join(";")];
+  ls.forEach(l=>rows.push([l.data.split("-").reverse().join("/"),esc(l.descricao),esc(l.categoria),esc(origemNome(l.origem)),l.tipo==="receita"?"Receita":"Despesa",l.valor.toFixed(2).replace(".",","),esc(l.parcela||"")].join(";")));
+  const blob=new Blob(["\uFEFF"+rows.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const a2=document.createElement("a");a2.href=URL.createObjectURL(blob);
+  a2.download=`fluxo-${mesAtual}.csv`;document.body.appendChild(a2);a2.click();a2.remove();
+  setTimeout(()=>URL.revokeObjectURL(a2.href),4000);
+}
+document.getElementById("btnCSV").onclick=exportCSV;
+document.getElementById("btnPrint").onclick=()=>window.print();
+
+function renderAll(){
+  renderDash();
+  const v=document.querySelector(".view.active").id;
+  if(v==="v-ext")renderExt();
+  if(v==="v-rel")renderRel();
+}
 
 // ===== Gerenciar origens =====
 const overlayOrig=document.getElementById("overlayOrig");
